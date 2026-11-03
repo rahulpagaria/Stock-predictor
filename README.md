@@ -110,6 +110,24 @@ the zero-return baseline. Each model includes a short inference based on its
 forecast and held-out metrics. XGBoost can be selected when its optional dependency
 is installed; on macOS it may additionally require `brew install libomp`.
 
+### Free hosting with Streamlit Community Cloud
+
+The app is configured to run from the repository root with `app.py` and
+`requirements.txt`. To publish a hosted dashboard:
+
+1. Push this project to a GitHub repository under your account.
+2. Sign in at [share.streamlit.io](https://share.streamlit.io/) with GitHub and
+   authorize access to the repository.
+3. Choose **Create app**, select the repository and `main` branch, and set the
+   app file to `app.py`.
+4. Deploy. Community Cloud will install packages from `requirements.txt`.
+
+The deployed dashboard is accessible to anyone with its URL. The source
+repository can remain private if the hosting account has access. No API keys or
+secrets are required by the current app. Review provider terms and free-tier
+limits before sharing broadly; ticker lookups fetch market data from Yahoo
+Finance.
+
 ## Tests
 
 ```sh
