@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="520" viewBox="0 0 760 520" fill="none">
+  <defs>
+    <linearGradient id="panel" x1="120" y1="30" x2="680" y2="500" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF9E9"/>
+      <stop offset="1" stop-color="#F3E4BE"/>
+    </linearGradient>
+    <linearGradient id="line" x1="128" y1="352" x2="634" y2="137" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#CBAE6C"/>
+      <stop offset="1" stop-color="#E6CC8F"/>
+    </linearGradient>
+    <filter id="shadow" x="48" y="12" width="674" height="500" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="18" stdDeviation="20" flood-color="#8D7544" flood-opacity=".16"/>
+    </filter>
+  </defs>
+  <g filter="url(#shadow)">
+    <rect x="74" y="38" width="622" height="438" rx="30" fill="url(#panel)" stroke="#D8BE82" stroke-opacity=".6"/>
+    <path d="M118 131h534M118 195h534M118 259h534M118 323h534M118 387h534" stroke="#BCA56F" stroke-opacity=".2"/>
+    <path d="M178 97v321M270 97v321M362 97v321M454 97v321M546 97v321M638 97v321" stroke="#BCA56F" stroke-opacity=".14"/>
+    <text x="118" y="88" fill="#94763B" font-family="Arial,sans-serif" font-size="18" font-weight="600" letter-spacing="1.8">MARKET MOMENTUM</text>
+    <text x="118" y="119" fill="#A59368" font-family="Arial,sans-serif" font-size="13" letter-spacing="1.2">TECHNICAL SIGNALS · MODEL INSIGHTS</text>
+    <path d="m118 350 59-42 45 14 53-73 47 28 54-89 45 30 55-74 51 24 61-61 52 15" stroke="url(#line)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M118 350 177 308l45 14 53-73 47 28 54-89 45 30 55-74 51 24 61-61 52 15v175H118V350Z" fill="url(#line)" fill-opacity=".09"/>
+    <circle cx="638" cy="122" r="8" fill="#D6B66F"/>
+    <circle cx="638" cy="122" r="15" stroke="#C9A95F" stroke-opacity=".45" stroke-width="2"/>
+    <rect x="118" y="405" width="148" height="38" rx="19" fill="#D9C79D" fill-opacity=".32"/>
+    <circle cx="138" cy="424" r="5" fill="#BEA15C"/>
+    <text x="153" y="429" fill="#887347" font-family="Arial,sans-serif" font-size="13" letter-spacing=".8">DATA-LED RESEARCH</text>
+    <rect x="529" y="405" width="123" height="38" rx="19" fill="#D8B66A" fill-opacity=".24"/>
+    <text x="550" y="429" fill="#92743A" font-family="Arial,sans-serif" font-size="13" font-weight="600" letter-spacing=".8">LOOK AHEAD</text>
+  </g>
+</svg>

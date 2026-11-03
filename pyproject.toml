@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stock-predictor"
+version = "0.1.0"
+description = "A lean next-trading-day stock forecasting toolkit"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "scikit-learn>=1.3",
+    "yfinance>=0.2.40",
+]
+
+[project.optional-dependencies]
+xgboost = ["xgboost>=2.0"]
+test = ["pytest>=7.4"]
+web = ["plotly>=5.18", "streamlit>=1.49"]
+
+[project.scripts]
+stock-predictor = "stock_predictor.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["stock_predictor*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
