@@ -109,6 +109,10 @@ close/return/signal; and charts walk-forward MAE and directional accuracy agains
 the zero-return baseline. Each model includes a short inference based on its
 forecast and held-out metrics. XGBoost can be selected when its optional dependency
 is installed; on macOS it may additionally require `brew install libomp`.
+Use **Download PDF report** on a generated report to save a branded PDF with the
+forecast summary, model validation and inference tables, plus historical price,
+RSI, volume, forecast-return, and validation charts. The PDF is generated
+in-memory; reports are not saved on the server.
 
 ### Free hosting with Streamlit Community Cloud
 

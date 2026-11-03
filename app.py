@@ -13,6 +13,7 @@ from stock_predictor.data import YahooFinanceProvider
 from stock_predictor.engine import ModelReport, create_model_report
 from stock_predictor.features import add_technical_features
 from stock_predictor.modeling import MODEL_NAMES
+from stock_predictor.report_pdf import create_pdf_report, pdf_filename
 
 
 TICKER_SUGGESTIONS = {
@@ -185,6 +186,7 @@ with st.container(border=True):
 if run_report:
     st.session_state.pop("stock_report", None)
     st.session_state.pop("stock_history", None)
+    st.session_state.pop("stock_pdf", None)
     symbol = (ticker or "").strip()
     if not symbol:
         st.error("Enter a ticker symbol.")
@@ -206,8 +208,10 @@ if run_report:
                     threshold=threshold_percent / 100,
                     n_splits=folds,
                 )
+                pdf_data = create_pdf_report(report, prices)
                 st.session_state["stock_report"] = report
                 st.session_state["stock_history"] = prices
+                st.session_state["stock_pdf"] = pdf_data
             except (ValueError, RuntimeError) as error:
                 st.error(str(error))
 
@@ -244,6 +248,18 @@ price_columns[1].metric("Lowest walk-forward MAE", best_model)
 price_columns[2].metric(
     "Zero-return baseline MAE",
     f"{report.evaluation['zero_return_baseline']['mae']:.4f}",
+)
+pdf_data = st.session_state.get("stock_pdf")
+if not isinstance(pdf_data, bytes):
+    pdf_data = create_pdf_report(report, history)
+    st.session_state["stock_pdf"] = pdf_data
+st.download_button(
+    "Download PDF report",
+    data=pdf_data,
+    file_name=pdf_filename(report.ticker, report.as_of),
+    mime="application/pdf",
+    icon=":material/download:",
+    width="content",
 )
 
 features = add_technical_features(history)
