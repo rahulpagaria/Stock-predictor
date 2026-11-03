@@ -126,6 +126,10 @@ The app is configured to run from the repository root with `app.py` and
    app file to `app.py`.
 4. Deploy. Community Cloud will install packages from `requirements.txt`.
 
+The deployed app is connected to the selected GitHub branch. Streamlit Community
+Cloud automatically rebuilds and publishes new commits pushed to that branch.
+Use pull requests or reviewed commits on `main` to control which changes go live.
+
 The deployed dashboard is accessible to anyone with its URL. The source
 repository can remain private if the hosting account has access. No API keys or
 secrets are required by the current app. Review provider terms and free-tier
