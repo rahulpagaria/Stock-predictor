@@ -2,10 +2,32 @@ import unittest
 
 import pandas as pd
 
-from stock_predictor.data import DataFetchError, normalize_history
+from stock_predictor.data import (
+    DataFetchError,
+    normalize_history,
+    resolve_market_ticker,
+)
 
 
 class DataTests(unittest.TestCase):
+    def test_resolves_indian_exchange_symbols(self) -> None:
+        self.assertEqual(resolve_market_ticker("RELIANCE", "NSE India"), "RELIANCE.NS")
+        self.assertEqual(resolve_market_ticker("RELIANCE", "BSE India"), "RELIANCE.BO")
+        self.assertEqual(
+            resolve_market_ticker("reliance.ns", "NSE India"), "RELIANCE.NS"
+        )
+        self.assertEqual(resolve_market_ticker("GC=F", "Global & futures"), "GC=F")
+
+    def test_rejects_mismatched_indian_exchange_suffix(self) -> None:
+        with self.assertRaisesRegex(ValueError, "already a NS symbol"):
+            resolve_market_ticker("RELIANCE.NS", "BSE India")
+        with self.assertRaisesRegex(ValueError, "already a BO symbol"):
+            resolve_market_ticker("RELIANCE.BO", "NSE India")
+
+    def test_rejects_empty_market_ticker(self) -> None:
+        with self.assertRaisesRegex(ValueError, "Ticker cannot be empty"):
+            resolve_market_ticker("  ", "NSE India")
+
     def test_normalizes_and_sorts_history(self) -> None:
         history = pd.DataFrame(
             {

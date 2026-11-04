@@ -9,29 +9,46 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from stock_predictor.data import YahooFinanceProvider
+from stock_predictor.data import Market, YahooFinanceProvider, resolve_market_ticker
 from stock_predictor.engine import ModelReport, create_model_report
 from stock_predictor.features import add_technical_features
-from stock_predictor.modeling import MODEL_NAMES
+from stock_predictor.modeling import MODEL_NAMES, model_label
 from stock_predictor.report_pdf import create_pdf_report, pdf_filename
 
 
-TICKER_SUGGESTIONS = {
+MAROON = "#681D36"
+MAROON_LIGHT = "#8B354F"
+GOLD = "#D2AD5C"
+px.defaults.color_discrete_sequence = [MAROON, GOLD, "#A96C7D", "#85734F"]
+
+
+GLOBAL_TICKER_SUGGESTIONS = {
     "AAPL": "Apple",
     "AMZN": "Amazon",
     "BTC-USD": "Bitcoin",
     "GC=F": "Gold futures",
     "GOOGL": "Alphabet",
-    "INFY.NS": "Infosys",
     "META": "Meta Platforms",
     "MSFT": "Microsoft",
     "NVDA": "NVIDIA",
-    "RELIANCE.NS": "Reliance Industries",
     "SI=F": "Silver futures",
     "SPY": "S&P 500 ETF",
-    "TCS.NS": "Tata Consultancy Services",
     "TSLA": "Tesla",
 }
+INDIA_TICKER_SUGGESTIONS = {
+    "BHARTIARTL": "Bharti Airtel",
+    "HCLTECH": "HCL Technologies",
+    "HDFCBANK": "HDFC Bank",
+    "ICICIBANK": "ICICI Bank",
+    "INFY": "Infosys",
+    "ITC": "ITC",
+    "LT": "Larsen & Toubro",
+    "RELIANCE": "Reliance Industries",
+    "SBIN": "State Bank of India",
+    "TATAMOTORS": "Tata Motors",
+    "TCS": "Tata Consultancy Services",
+}
+MARKET_OPTIONS: tuple[Market, ...] = ("Global & futures", "NSE India", "BSE India")
 
 
 st.set_page_config(
@@ -43,12 +60,12 @@ st.markdown(
     """
     <style>
     :root {
-        --brand-forest: #103d35;
-        --brand-forest-light: #1c594a;
-        --brand-gold: #d8b66a;
-        --brand-ink: #1c2a26;
-        --brand-muted: #65756e;
-        --brand-paper: #f5f7f4;
+        --brand-maroon: #681d36;
+        --brand-maroon-light: #8b354f;
+        --brand-gold: #d2ad5c;
+        --brand-ink: #30252a;
+        --brand-muted: #756a6d;
+        --brand-paper: #fbf8f1;
     }
     [data-testid="stAppViewContainer"] { background: var(--brand-paper); }
     [data-testid="stHeader"] { background: transparent; }
@@ -57,35 +74,35 @@ st.markdown(
     h1, h2, h3 { color: var(--brand-ink); letter-spacing: -0.035em; }
     [data-testid="stCaptionContainer"] { color: var(--brand-muted); }
     [data-testid="stMetric"] {
-        background: white; border: 1px solid #e4e9e4; border-radius: 16px;
-        padding: 1rem 1.15rem; box-shadow: 0 5px 18px rgba(16, 61, 53, .045);
+        background: white; border: 1px solid #eee6d6; border-radius: 16px;
+        padding: 1rem 1.15rem; box-shadow: 0 5px 18px rgba(104, 29, 54, .045);
     }
-    [data-testid="stSidebar"] { background: #edf2ed; }
-    [data-testid="stSidebar"] h2 { color: var(--brand-forest); }
+    [data-testid="stSidebar"] { background: #f3eddf; }
+    [data-testid="stSidebar"] h2 { color: var(--brand-maroon); }
     div.stButton > button, div.stFormSubmitButton > button {
         border-radius: 10px; font-weight: 650; min-height: 2.8rem;
-        background: var(--brand-forest); border-color: var(--brand-forest);
+        background: var(--brand-maroon); border-color: var(--brand-maroon);
     }
     div.stButton > button:hover, div.stFormSubmitButton > button:hover {
-        background: var(--brand-forest-light); border-color: var(--brand-forest-light);
+        background: var(--brand-maroon-light); border-color: var(--brand-maroon-light);
         color: white;
     }
     [data-testid="stTextInput"] input {
-        min-height: 3rem; border-radius: 10px; border-color: #cbd6ce;
+        min-height: 3rem; border-radius: 10px; border-color: #d9cdb5;
     }
     [data-testid="stVerticalBlockBorderWrapper"] {
-        border-color: #e2e8e2; border-radius: 22px; background: white;
-        box-shadow: 0 12px 36px rgba(16, 61, 53, .06);
+        border-color: #eee6d6; border-radius: 22px; background: white;
+        box-shadow: 0 12px 36px rgba(104, 29, 54, .06);
     }
     .brand-header { display: flex; align-items: center; gap: .9rem; margin-bottom: 1rem; }
-    .brand-title { color: var(--brand-forest); font-size: 1.45rem; line-height: 1.1; font-weight: 750; }
+    .brand-title { color: var(--brand-maroon); font-size: 1.45rem; line-height: 1.1; font-weight: 750; }
     .brand-owner { color: var(--brand-muted); font-size: .79rem; margin-top: .3rem; }
     .hero-eyebrow {
-        color: #b28e42; text-transform: uppercase; letter-spacing: .16em;
+        color: #9a7735; text-transform: uppercase; letter-spacing: .16em;
         font-size: .74rem; font-weight: 750; margin: .6rem 0 .7rem;
     }
     .hero-title {
-        color: var(--brand-forest); font-size: clamp(2.2rem, 4vw, 3.35rem);
+        color: var(--brand-maroon); font-size: clamp(2.2rem, 4vw, 3.35rem);
         line-height: 1.04; letter-spacing: -.055em; font-weight: 760; margin: 0 0 .75rem;
     }
     .hero-copy { color: #56665f; font-size: 1.03rem; line-height: 1.7; max-width: 37rem; }
@@ -94,7 +111,7 @@ st.markdown(
         font-size: .73rem; font-weight: 700;
     }
     .report-footer {
-        border-top: 1px solid #e1e7e1; margin-top: 2.6rem; padding-top: 1.2rem;
+        border-top: 1px solid #eee6d6; margin-top: 2.6rem; padding-top: 1.2rem;
         color: #748179; font-size: .82rem;
     }
     </style>
@@ -124,8 +141,20 @@ with st.sidebar:
     selected_models = st.multiselect(
         "Statistical techniques",
         options=MODEL_NAMES,
-        default=["linear", "ridge", "lasso"],
-        help="XGBoost is optional and may require the OpenMP runtime on macOS.",
+        default=["ridge", "random_forest", "knn", "mlp"],
+        format_func=model_label,
+        help=(
+            "Random Forest, KNN and MLP are nonlinear candidates. XGBoost is "
+            "optional and may require the OpenMP runtime on macOS."
+        ),
+    )
+    include_signal_classifier = st.checkbox(
+        "Include logistic BUY/SELL/FLAT classifier",
+        value=True,
+        help=(
+            "This is a separate signal classification task; it does not produce "
+            "a price or return forecast."
+        ),
     )
     threshold_percent = st.number_input(
         "Flat-signal threshold (%)",
@@ -150,19 +179,26 @@ with st.container(border=True):
             """,
             unsafe_allow_html=True,
         )
+        market = st.selectbox("Market", options=MARKET_OPTIONS)
+        if market == "Global & futures":
+            suggestions = GLOBAL_TICKER_SUGGESTIONS
+        else:
+            suggestions = INDIA_TICKER_SUGGESTIONS
         with st.form("ticker_search", border=False):
             ticker = st.selectbox(
                 "Enter a ticker",
-                options=tuple(TICKER_SUGGESTIONS),
+                options=tuple(suggestions),
                 index=None,
-                placeholder="Search a company or ticker — or type any ticker",
+                placeholder=(
+                    "Search company or ticker — or type any Yahoo Finance symbol"
+                ),
                 help=(
-                    "Type to filter suggestions, or enter any Yahoo Finance ticker "
-                    "and press Enter."
+                    "Choose a suggestion or enter any Yahoo Finance ticker. For "
+                    "Indian listings, enter the exchange symbol without .NS/.BO."
                 ),
                 format_func=lambda symbol: (
-                    f"{symbol} · {TICKER_SUGGESTIONS[symbol]}"
-                    if symbol in TICKER_SUGGESTIONS
+                    f"{symbol} · {suggestions[symbol]}"
+                    if symbol in suggestions
                     else symbol
                 ),
                 accept_new_options=True,
@@ -170,6 +206,11 @@ with st.container(border=True):
             )
             run_report = st.form_submit_button(
                 "Explore this ticker  →", type="primary", width="stretch"
+            )
+            st.caption(
+                "Indian listings are mapped to Yahoo Finance symbols "
+                "(.NS for NSE, .BO for BSE); this is not a direct exchange feed. "
+                "At least 51 daily rows are needed, and BSE history availability varies."
             )
     with hero_art:
         hero_path = Path(__file__).parent / "assets" / "market-hero.svg"
@@ -187,33 +228,42 @@ if run_report:
     st.session_state.pop("stock_report", None)
     st.session_state.pop("stock_history", None)
     st.session_state.pop("stock_pdf", None)
-    symbol = (ticker or "").strip()
-    if not symbol:
+    entered_symbol = (ticker or "").strip()
+    if not entered_symbol:
         st.error("Enter a ticker symbol.")
-    elif not selected_models:
-        st.error("Select at least one statistical technique.")
     else:
-        today = date.today()
-        start = today - timedelta(days=365 * history_years)
-        end = today + timedelta(days=1)
-        with st.spinner(f"Downloading {symbol} history and evaluating models..."):
-            try:
-                prices = YahooFinanceProvider().fetch_history(
-                    symbol, start=start.isoformat(), end=end.isoformat()
-                )
-                report = create_model_report(
-                    ticker=symbol,
-                    history=prices,
-                    model_names=tuple(selected_models),
-                    threshold=threshold_percent / 100,
-                    n_splits=folds,
-                )
-                pdf_data = create_pdf_report(report, prices)
-                st.session_state["stock_report"] = report
-                st.session_state["stock_history"] = prices
-                st.session_state["stock_pdf"] = pdf_data
-            except (ValueError, RuntimeError) as error:
-                st.error(str(error))
+        try:
+            symbol = resolve_market_ticker(entered_symbol, market)
+        except ValueError as error:
+            st.error(str(error))
+        else:
+            if not selected_models:
+                st.error("Select at least one statistical technique.")
+            else:
+                today = date.today()
+                start = today - timedelta(days=365 * history_years)
+                end = today + timedelta(days=1)
+                with st.spinner(
+                    f"Downloading {symbol} data via Yahoo Finance and evaluating models..."
+                ):
+                    try:
+                        prices = YahooFinanceProvider().fetch_history(
+                            symbol, start=start.isoformat(), end=end.isoformat()
+                        )
+                        report = create_model_report(
+                            ticker=symbol,
+                            history=prices,
+                            model_names=tuple(selected_models),
+                            threshold=threshold_percent / 100,
+                            n_splits=folds,
+                            include_signal_classifier=include_signal_classifier,
+                        )
+                        pdf_data = create_pdf_report(report, prices)
+                        st.session_state["stock_report"] = report
+                        st.session_state["stock_history"] = prices
+                        st.session_state["stock_pdf"] = pdf_data
+                    except (ValueError, RuntimeError) as error:
+                        st.error(str(error))
 
 report = st.session_state.get("stock_report")
 history = st.session_state.get("stock_history")
@@ -243,8 +293,11 @@ st.caption(
 
 price_columns = st.columns(3)
 price_columns[0].metric("Latest close", f"{report.current_close:,.2f}")
-best_model = min(report.evaluation, key=lambda name: report.evaluation[name]["mae"])
-price_columns[1].metric("Lowest walk-forward MAE", best_model)
+best_model = min(
+    (name for name in report.evaluation if name != "zero_return_baseline"),
+    key=lambda name: report.evaluation[name]["mae"],
+)
+price_columns[1].metric("Lowest walk-forward MAE", model_label(best_model))
 price_columns[2].metric(
     "Zero-return baseline MAE",
     f"{report.evaluation['zero_return_baseline']['mae']:.4f}",
@@ -261,6 +314,28 @@ st.download_button(
     icon=":material/download:",
     width="content",
 )
+
+if report.signal_classifier is not None:
+    signal_model = report.signal_classifier
+    st.subheader("Logistic signal classification")
+    st.caption(
+        "A separate classifier predicts a BUY/SELL/FLAT category from the "
+        "configured return threshold; it does not forecast a price or return."
+    )
+    signal_columns = st.columns(3)
+    signal_columns[0].metric("Predicted signal", signal_model.signal)
+    signal_columns[1].metric("Class probability", f"{signal_model.confidence_pct:.1f}%")
+    signal_columns[2].metric(
+        "Walk-forward balanced accuracy",
+        f"{signal_model.evaluation['balanced_accuracy']:.1%}",
+    )
+    st.caption(
+        f"Validation accuracy: {signal_model.evaluation['accuracy']:.1%} across "
+        f"{signal_model.evaluation['folds']} trainable chronological folds and "
+        f"{signal_model.evaluation['samples']} held-out sessions."
+    )
+elif report.signal_classifier_error:
+    st.warning(report.signal_classifier_error)
 
 features = add_technical_features(history)
 st.subheader("Historical price and indicators")
@@ -314,7 +389,7 @@ with chart_right:
 st.subheader("Next-session estimates by technique")
 forecast_rows = [
     {
-        "Technique": forecast.model,
+        "Technique": model_label(forecast.model),
         "Predicted close": forecast.predicted_next_close,
         "Predicted return (%)": forecast.predicted_return_pct,
         "Signal": forecast.signal,
@@ -337,7 +412,7 @@ with forecast_right:
         x="Technique",
         y="Predicted return (%)",
         color="Signal",
-        color_discrete_map={"BUY": "#2ca02c", "SELL": "#d62728", "FLAT": "#7f7f7f"},
+        color_discrete_map={"BUY": MAROON, "SELL": GOLD, "FLAT": "#7f7f7f"},
         title="Predicted next-session return",
     )
     return_chart.add_hline(y=report.threshold_pct, line_dash="dash", annotation_text="Buy threshold")
@@ -353,11 +428,11 @@ st.caption(
     "shown for fitted models only; a zero-return baseline has no directional call."
 )
 metric_rows = [
-    {"Technique": model, **metrics}
+    {"Technique": model_label(model), **metrics}
     for model, metrics in report.evaluation.items()
 ]
 metrics_frame = pd.DataFrame(metric_rows).set_index("Technique")
-fitted_metrics_frame = metrics_frame.drop(index="zero_return_baseline")
+fitted_metrics_frame = metrics_frame.drop(index=model_label("zero_return_baseline"))
 metric_left, metric_right = st.columns(2)
 with metric_left:
     st.markdown("#### Mean absolute error")
@@ -381,7 +456,7 @@ with metric_right:
 st.dataframe(
     metrics_frame.copy().assign(
         directional_accuracy=metrics_frame["directional_accuracy"].where(
-            metrics_frame.index != "zero_return_baseline"
+            metrics_frame.index != model_label("zero_return_baseline")
         )
     ).style.format(
         {"mae": "{:.5f}", "rmse": "{:.5f}", "directional_accuracy": "{:.1%}"},
@@ -393,7 +468,7 @@ st.dataframe(
 st.subheader("Model inferences")
 for forecast in report.forecasts:
     metrics = report.evaluation[forecast.model]
-    with st.expander(f"{forecast.model.title()} · {forecast.signal}"):
+    with st.expander(f"{model_label(forecast.model)} · {forecast.signal}"):
         st.write(
             f"Forecast close: **{forecast.predicted_next_close:,.2f}** "
             f"({forecast.predicted_return_pct:+.3f}%)."

@@ -11,7 +11,14 @@ from .features import (
     build_supervised_data,
     latest_feature_row,
 )
-from .modeling import MODEL_NAMES, evaluate_models, fit_regressor
+from .modeling import (
+    MODEL_NAMES,
+    SignalClassificationError,
+    evaluate_models,
+    evaluate_signal_classifier,
+    fit_regressor,
+    fit_signal_classifier,
+)
 from .signals import classify_signal, validate_threshold
 
 
@@ -42,6 +49,13 @@ class ModelForecast:
 
 
 @dataclass(frozen=True)
+class SignalClassifierForecast:
+    signal: str
+    confidence_pct: float
+    evaluation: dict[str, float | int]
+
+
+@dataclass(frozen=True)
 class ModelReport:
     ticker: str
     as_of: str
@@ -50,6 +64,8 @@ class ModelReport:
     training_samples: int
     forecasts: tuple[ModelForecast, ...]
     evaluation: dict[str, dict[str, float | int]]
+    signal_classifier: SignalClassifierForecast | None = None
+    signal_classifier_error: str | None = None
 
 
 def create_forecast(
@@ -102,6 +118,7 @@ def create_model_report(
     model_names: tuple[str, ...],
     threshold: float = 0.01,
     n_splits: int = 5,
+    include_signal_classifier: bool = False,
 ) -> ModelReport:
     validate_threshold(threshold)
     selected_models = tuple(dict.fromkeys(model_names))
@@ -154,6 +171,24 @@ def create_model_report(
             )
         )
 
+    signal_classifier = None
+    signal_classifier_error = None
+    if include_signal_classifier:
+        try:
+            classifier_evaluation = evaluate_signal_classifier(
+                training_data, n_splits=n_splits, threshold=threshold
+            )
+            classifier = fit_signal_classifier(training_data, threshold=threshold)
+            probabilities = classifier.predict_proba(feature_row)[0]
+            class_index = int(probabilities.argmax())
+            signal_classifier = SignalClassifierForecast(
+                signal=str(classifier.classes_[class_index]),
+                confidence_pct=float(probabilities[class_index] * 100),
+                evaluation=classifier_evaluation,
+            )
+        except SignalClassificationError as error:
+            signal_classifier_error = str(error)
+
     return ModelReport(
         ticker=ticker,
         as_of=pd.Timestamp(history.index[-1]).date().isoformat(),
@@ -162,6 +197,8 @@ def create_model_report(
         training_samples=len(training_data),
         forecasts=tuple(forecasts),
         evaluation=evaluation,
+        signal_classifier=signal_classifier,
+        signal_classifier_error=signal_classifier_error,
     )
 
 

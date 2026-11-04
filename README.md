@@ -18,8 +18,8 @@ source .venv/bin/activate
 python -m pip install -e .
 ```
 
-The linear, Ridge, and Lasso regressors are included in the base install. XGBoost
-is optional:
+Linear, Ridge, Lasso, Random Forest, K-Nearest Neighbors, and a small multilayer
+perceptron (MLP) regressor are included in the base install. XGBoost is optional:
 
 ```sh
 python -m pip install -e '.[xgboost]'
@@ -50,8 +50,8 @@ baseline. Metric values are expressed as decimal return fractions. The estimated
 next session's calendar date is intentionally not guessed; at least 56 usable
 trading sessions are required for the default five-split evaluation.
 
-Evaluate the linear, Ridge, Lasso, and XGBoost candidates with chronological
-walk-forward splits, then fit the chosen `--model` on all available labeled rows:
+Evaluate regression candidates with chronological walk-forward splits, then fit
+the chosen `--model` on all available labeled rows:
 
 ```sh
 stock-predictor AAPL --compare-models --model xgboost
@@ -103,16 +103,35 @@ python -m streamlit run app.py
 Search the ticker autocomplete in the welcome panel to choose a suggested symbol,
 or type any Yahoo Finance ticker and press Enter. Then select a history window and one or more statistical techniques,
 then generate a report. Ticker Predictor is presented by Rahul Pagaria and Vruksh Enterprises.
-The dashboard plots the adjusted close with selectable
-moving-average overlays, RSI, and volume; compares each selected model's next
-close/return/signal; and charts walk-forward MAE and directional accuracy against
-the zero-return baseline. Each model includes a short inference based on its
-forecast and held-out metrics. XGBoost can be selected when its optional dependency
-is installed; on macOS it may additionally require `brew install libomp`.
+The dashboard uses a maroon-and-gold theme and plots the adjusted close with
+selectable moving-average overlays, RSI, and volume; compares each selected
+regressor's next close/return/signal; and charts walk-forward MAE and directional
+accuracy against the zero-return baseline. The regression candidates include
+Random Forest, scaled KNN, and a scaled MLP; neural-network performance should be
+judged by the same chronological held-out metrics and is not assumed to improve
+on simpler models. The optional Logistic Regression classifier predicts
+BUY/SELL/FLAT separately from price and return regression, and reports accuracy
+and balanced accuracy. It requires multiple signal classes in its training folds;
+if those are absent at the selected threshold, the report explains why a
+classification forecast is unavailable. Each regression model includes a short
+inference based on its forecast and held-out metrics. XGBoost can be selected when
+its optional dependency is installed; on macOS it may additionally require
+`brew install libomp`.
 Use **Download PDF report** on a generated report to save a branded PDF with the
 forecast summary, model validation and inference tables, plus historical price,
 RSI, volume, forecast-return, and validation charts. The PDF is generated
 in-memory; reports are not saved on the server.
+
+The market selector includes **Global & futures**, **NSE India**, and **BSE India**.
+For India, choose an exchange, then select a suggested company or enter its
+exchange symbol (for example `RELIANCE`); the app maps it to Yahoo Finance's
+`.NS` or `.BO` symbol respectively. Historical prices are still delivered by
+Yahoo Finance, not fetched directly from NSE or BSE. The exchange selection only
+chooses the listing-symbol suffix; confirm the correct exchange listing for each
+company before use. Data availability varies by listing: a forecast requires at
+least 51 daily rows, and some BSE listings may not have enough Yahoo Finance
+history to generate one. The app reports insufficient history rather than
+substituting prices from the other exchange.
 
 ### Free hosting with Streamlit Community Cloud
 

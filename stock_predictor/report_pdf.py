@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 from io import BytesIO
+from xml.sax.saxutils import escape
 
 import pandas as pd
 from reportlab.lib import colors
@@ -22,15 +23,16 @@ from reportlab.platypus import (
 
 from .engine import ModelReport
 from .features import add_technical_features
+from .modeling import model_label
 
 
-FOREST = colors.HexColor("#103D35")
-FOREST_LIGHT = colors.HexColor("#1C594A")
-GOLD = colors.HexColor("#D8B66A")
-INK = colors.HexColor("#1C2A26")
-MUTED = colors.HexColor("#65756E")
-GRID = colors.HexColor("#E4E9E4")
-PALE_GOLD = colors.HexColor("#F8F3E7")
+MAROON = colors.HexColor("#681D36")
+MAROON_LIGHT = colors.HexColor("#8B354F")
+GOLD = colors.HexColor("#D2AD5C")
+INK = colors.HexColor("#30252A")
+MUTED = colors.HexColor("#756A6D")
+GRID = colors.HexColor("#EEE6D6")
+PALE_GOLD = colors.HexColor("#FBF6E9")
 
 
 def _short_number(value: float) -> str:
@@ -49,7 +51,7 @@ class LineChart(Flowable):
         self,
         title: str,
         values: Sequence[tuple[str, float]],
-        color: colors.Color = FOREST_LIGHT,
+        color: colors.Color = MAROON_LIGHT,
         width: float = 245,
         height: float = 142,
     ) -> None:
@@ -165,7 +167,7 @@ class BarChart(Flowable):
                 0.48 if min(self.values) < 0 else 0.9
             )
             y = baseline if value >= 0 else baseline - bar_height
-            canvas.setFillColor(FOREST_LIGHT if value >= 0 else GOLD)
+            canvas.setFillColor(MAROON_LIGHT if value >= 0 else GOLD)
             canvas.roundRect(center - bar_width / 2, y, bar_width, bar_height, 2, stroke=0, fill=1)
             text = f"{value:+.2f}%" if self.percent else f"{value:.4f}"
             canvas.setFont("Helvetica", 6)
@@ -203,7 +205,7 @@ def create_pdf_report(report: ModelReport, history: pd.DataFrame) -> bytes:
             fontName="Helvetica-Bold",
             fontSize=22,
             leading=27,
-            textColor=FOREST,
+            textColor=MAROON,
             alignment=TA_LEFT,
             spaceAfter=2,
         )
@@ -224,7 +226,7 @@ def create_pdf_report(report: ModelReport, history: pd.DataFrame) -> bytes:
             parent=styles["Heading2"],
             fontSize=13,
             leading=17,
-            textColor=FOREST,
+            textColor=MAROON,
             spaceBefore=8,
             spaceAfter=7,
         )
@@ -278,7 +280,7 @@ def create_pdf_report(report: ModelReport, history: pd.DataFrame) -> bytes:
     metric_table.setStyle(
         TableStyle(
             [
-                ("BACKGROUND", (0, 0), (-1, 0), FOREST),
+                ("BACKGROUND", (0, 0), (-1, 0), MAROON),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
                 ("FONTSIZE", (0, 0), (-1, -1), 8),
@@ -306,7 +308,7 @@ def create_pdf_report(report: ModelReport, history: pd.DataFrame) -> bytes:
     for forecast in report.forecasts:
         forecast_data.append(
             [
-                forecast.model.title(),
+                model_label(forecast.model),
                 f"{forecast.predicted_next_close:,.2f}",
                 f"{forecast.predicted_return_pct:+.3f}%",
                 forecast.signal,
@@ -314,13 +316,13 @@ def create_pdf_report(report: ModelReport, history: pd.DataFrame) -> bytes:
         )
     forecast_table = Table(
         forecast_data,
-        colWidths=[38 * mm, 47 * mm, 47 * mm, 44 * mm],
+        colWidths=[45 * mm, 44 * mm, 45 * mm, 42 * mm],
         repeatRows=1,
     )
     forecast_table.setStyle(
         TableStyle(
             [
-                ("BACKGROUND", (0, 0), (-1, 0), FOREST_LIGHT),
+                ("BACKGROUND", (0, 0), (-1, 0), MAROON_LIGHT),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
                 ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
@@ -335,6 +337,35 @@ def create_pdf_report(report: ModelReport, history: pd.DataFrame) -> bytes:
         )
     )
     story.append(forecast_table)
+
+    if report.signal_classifier is not None:
+        classifier = report.signal_classifier
+        story.extend(
+            [
+                Spacer(1, 4 * mm),
+                Paragraph("Logistic signal classification", styles["SectionTitle"]),
+                Paragraph(
+                    f"Separate signal-class forecast: <b>{classifier.signal}</b> "
+                    f"({classifier.confidence_pct:.1f}% class probability). "
+                    f"Walk-forward accuracy {classifier.evaluation['accuracy']:.1%}; "
+                    f"balanced accuracy "
+                    f"{classifier.evaluation['balanced_accuracy']:.1%} across "
+                    f"{classifier.evaluation['folds']} trainable folds. This model "
+                    "classifies BUY/SELL/FLAT and does not forecast a price or return.",
+                    styles["SmallBody"],
+                ),
+            ]
+        )
+    elif report.signal_classifier_error:
+        story.extend(
+            [
+                Spacer(1, 4 * mm),
+                Paragraph("Logistic signal classification", styles["SectionTitle"]),
+                Paragraph(
+                    escape(report.signal_classifier_error), styles["SmallBody"]
+                ),
+            ]
+        )
 
     story.extend(
         [
@@ -364,7 +395,7 @@ def create_pdf_report(report: ModelReport, history: pd.DataFrame) -> bytes:
             baseline_comparison = "Equal"
         metrics_data.append(
             [
-                model_name.title(),
+                model_label(model_name),
                 f"{metrics['mae']:.5f}",
                 f"{metrics['rmse']:.5f}",
                 f"{metrics['directional_accuracy']:.1%}",
@@ -389,7 +420,7 @@ def create_pdf_report(report: ModelReport, history: pd.DataFrame) -> bytes:
     metrics_table.setStyle(
         TableStyle(
             [
-                ("BACKGROUND", (0, 0), (-1, 0), FOREST_LIGHT),
+                ("BACKGROUND", (0, 0), (-1, 0), MAROON_LIGHT),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
                 ("FONTSIZE", (0, 0), (-1, -1), 7),
@@ -409,7 +440,7 @@ def create_pdf_report(report: ModelReport, history: pd.DataFrame) -> bytes:
         metrics = report.evaluation[forecast.model]
         story.append(
             Paragraph(
-                f"<b>{forecast.model.title()} · {forecast.signal}</b> — "
+                f"<b>{model_label(forecast.model)} · {forecast.signal}</b> — "
                 f"Forecast return {forecast.predicted_return_pct:+.3f}%; "
                 f"MAE {metrics['mae']:.5f}; RMSE {metrics['rmse']:.5f}; "
                 f"direction accuracy {metrics['directional_accuracy']:.1%}. "
@@ -424,7 +455,9 @@ def create_pdf_report(report: ModelReport, history: pd.DataFrame) -> bytes:
             PageBreak(),
             Paragraph("Charts & indicators", styles["SectionTitle"]),
             Paragraph(
-                "Historical charts use the downloaded, adjusted daily market data.",
+                "Historical charts use Yahoo Finance adjusted daily market data. "
+                "Indian symbols use Yahoo Finance's NSE (.NS) or BSE (.BO) listing "
+                "suffixes; this is not a direct exchange feed.",
                 styles["SmallBody"],
             ),
             Spacer(1, 4 * mm),
@@ -446,7 +479,7 @@ def create_pdf_report(report: ModelReport, history: pd.DataFrame) -> bytes:
     close_chart = LineChart(
         "Adjusted closing price",
         sampled_series(history["Close"]),
-        color=FOREST_LIGHT,
+        color=MAROON_LIGHT,
         width=260,
     )
     volume_chart = LineChart(
@@ -466,7 +499,7 @@ def create_pdf_report(report: ModelReport, history: pd.DataFrame) -> bytes:
     )
     forecast_chart = BarChart(
         "Forecast return by technique",
-        [forecast.model.title() for forecast in report.forecasts],
+        [model_label(forecast.model) for forecast in report.forecasts],
         [forecast.predicted_return_pct for forecast in report.forecasts],
         percent=True,
         width=260,
@@ -476,13 +509,13 @@ def create_pdf_report(report: ModelReport, history: pd.DataFrame) -> bytes:
 
     mae_chart = BarChart(
         "Walk-forward MAE (lower is better)",
-        [name.title() for name in [*model_names, "zero_return_baseline"]],
+        [model_label(name) for name in [*model_names, "zero_return_baseline"]],
         [float(report.evaluation[name]["mae"]) for name in [*model_names, "zero_return_baseline"]],
         width=260,
     )
     accuracy_chart = BarChart(
         "Directional accuracy",
-        [name.title() for name in model_names],
+        [model_label(name) for name in model_names],
         [
             float(report.evaluation[name]["directional_accuracy"]) * 100
             for name in model_names

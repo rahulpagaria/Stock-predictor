@@ -1,12 +1,41 @@
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Literal, Protocol
 
 import numpy as np
 import pandas as pd
 
 
 REQUIRED_COLUMNS = ("Open", "High", "Low", "Close", "Volume")
+Market = Literal["Global & futures", "NSE India", "BSE India"]
+MARKET_SUFFIXES: dict[Market, str | None] = {
+    "Global & futures": None,
+    "NSE India": ".NS",
+    "BSE India": ".BO",
+}
+
+
+def resolve_market_ticker(ticker: str, market: Market) -> str:
+    symbol = ticker.strip()
+    if not symbol:
+        raise ValueError("Ticker cannot be empty.")
+    if market not in MARKET_SUFFIXES:
+        raise ValueError(f"Unsupported market: {market}.")
+
+    suffix = MARKET_SUFFIXES[market]
+    if suffix is None:
+        return symbol
+
+    normalized_symbol = symbol.upper()
+    other_suffix = ".BO" if suffix == ".NS" else ".NS"
+    if normalized_symbol.endswith(other_suffix):
+        raise ValueError(
+            f"{symbol} is already a {other_suffix[1:]} symbol, but {market} "
+            f"was selected. Select the matching exchange."
+        )
+    if normalized_symbol.endswith(suffix):
+        return normalized_symbol
+    return f"{normalized_symbol}{suffix}"
 
 
 class PriceDataProvider(Protocol):
